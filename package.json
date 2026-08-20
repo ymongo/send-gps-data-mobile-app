@@ -2,10 +2,7 @@
   "name": "send-gps-data-mobile-app",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "apps/mobile",
-    "packages/shared"
-  ],
+  "workspaces": ["apps/mobile", "packages/shared"],
   "scripts": {
     "install:all": "npm install",
     "dev:mobile": "npm run dev --workspace=gps-mobile",
