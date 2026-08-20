@@ -1,0 +1,11 @@
+{
+	"appId": "com.mongoutils.sendgpsdata",
+	"appName": "Send GPS Data",
+	"webDir": "build",
+	"server": {
+		"androidScheme": "http"
+	},
+	"android": {
+		"useLegacyBridge": true
+	}
+}
