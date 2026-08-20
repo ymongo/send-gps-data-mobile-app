@@ -58,6 +58,7 @@
     "@capacitor/core": "^7.4.4",
     "@capacitor/device": "^7.0.2",
     "@capacitor/geolocation": "^7.0.0",
-    "gps-shared": "*"
+    "gps-shared": "*",
+    "qrcode": "^1.5.4"
   }
 }

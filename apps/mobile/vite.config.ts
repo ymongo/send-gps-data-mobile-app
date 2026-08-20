@@ -5,7 +5,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	build: {
-		minify: 'terser',
+		minify: 'esbuild',
 		sourcemap: false,
 		rollupOptions: {
 			output: {
