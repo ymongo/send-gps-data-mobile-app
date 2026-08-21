@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2D1B69"/>
+      <stop offset="100%" stop-color="#1A103D"/>
+    </linearGradient>
+  </defs>
+  <!-- Fond sombre -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Logo : trace rose sur fond sombre -->
+  <!-- Les chemins du logo.svg original (viewBox 0 0 1200 1200) adaptés avec fill rose -->
+  <g transform="translate(0,0) scale(0.853333)">
+    <!-- Mobile / smartphone (rectangle) -->
+    <rect x="450" y="180" width="320" height="580" rx="40" ry="40" fill="none" stroke="#E879F9" stroke-width="24"/>
+
+    <!-- Écran du mobile (lignes horizontales) -->
+    <line x1="470" y1="230" x2="750" y2="230" stroke="#E879F9" stroke-width="16"/>
+    <line x1="470" y1="720" x2="750" y2="720" stroke="#E879F9" stroke-width="16"/>
+
+    <!-- Bouton central mobile -->
+    <circle cx="610" cy="470" r="30" fill="none" stroke="#E879F9" stroke-width="16"/>
+
+    <!-- Point de localisation (épingle) -->
+    <circle cx="610" cy="520" r="50" fill="none" stroke="#E879F9" stroke-width="18"/>
+    <path d="M610 470 L610 570" stroke="#E879F9" stroke-width="18" fill="none"/>
+    <!-- Pointe de l'épingle -->
+    <path d="M560 530 Q610 580 660 530" fill="none" stroke="#E879F9" stroke-width="18"/>
+
+    <!-- Épingle (point of interest) -->
+    <path d="M610 320 L610 500" stroke="#E879F9" stroke-width="18" fill="none"/>
+    <circle cx="610" cy="540" r="60" fill="none" stroke="#E879F9" stroke-width="20" fill="rgba(232,121,249,0.15)"/>
+    <circle cx="610" cy="540" r="15" fill="#E879F9"/>
+  </g>
+</svg>

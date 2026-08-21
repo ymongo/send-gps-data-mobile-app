@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+dist/
+.svelte-kit/
+.vite/
+test-results/
+android/app/build/
+android/build/
+android/.gradle/
+
+# Local / OS
+nul
+*.log
+.DS_Store
+Thumbs.db
+
+# Secrets (never commit)
+keystore.properties
+*.keystore
+*.jks
+local.properties
+.env
+.env.local
+
+# Generated web bundle (rebuilt by CI)
+apps/mobile/android/app/src/main/assets/public/

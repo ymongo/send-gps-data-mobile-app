@@ -1,0 +1,40 @@
+# GitHub topics to add to the `send-gps-data-mobile-app` repo
+# (Repo Settings → Topics, or `gh repo edit` — these improve discoverability
+#  for humans AND AI search/crawlers.)
+
+# Core / primary
+gps
+gps-tracking
+location-tracking
+location-sharing
+
+# Stack
+android
+sveltekit
+capacitor
+typescript
+
+# Privacy / self-hosted
+self-hosted
+privacy
+privacy-first
+
+# F-Droid / open source
+f-droid
+fdroid
+open-source
+foss
+android-app
+
+# Networking
+websocket
+realtime
+
+# QR
+zxing
+qr-code
+
+# Crypto / payments
+lightning-network
+bitcoin
+lnurl
