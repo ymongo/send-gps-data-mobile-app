@@ -27,7 +27,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // Only ship the ABIs real phones use. Excludes x86/x86_64 (emulators only),
         // which cuts ~11 MB of native ML Kit barcode libs from the APK.

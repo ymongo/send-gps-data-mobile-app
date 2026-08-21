@@ -1,0 +1,66 @@
+# F-Droid build recipe — Send GPS Data (Android)
+#
+# This is the metadata/recipe F-Droid uses to build the app on their infra.
+# It lives in the fdroidserver metadata dir (metadata/ymongo.sendgpsdata.yml),
+# NOT in this repo. This file is a reference copy so you know exactly what
+# F-Droid expects. See: https://f-droid.org/docs/Build_Metadata_Reference/
+#
+# appId (from build.gradle): com.mongoutils.sendgpsdata
+# minSdk 26, targetSdk 36, compileSdk 36
+
+Categories:
+  - Navigation
+  - System
+
+License: MIT
+
+WebSite: https://github.com/ymongo/send-gps-data-mobile-app
+SourceCode: https://github.com/ymongo/send-gps-data-mobile-app
+IssueTracker: https://github.com/ymongo/send-gps-data-mobile-app/issues
+Changelog: https://github.com/ymongo/send-gps-data-mobile-app/blob/master/RELEASE_NOTES.md
+
+Donate: https://getalby.com/lightning/p/greenpond2749@getalby.com
+
+AutoName: Send GPS Data
+Summary: Privacy-first self-hosted GPS location streaming
+Description: |
+  Stream your live GPS location to a server you own over WebSocket.
+  Privacy-first, self-hosted, no account, no cloud. The Android app reads
+  the GPS and streams it to your own server (Electron desktop app or any
+  WebSocket endpoint) — a do-it-yourself alternative to Google Find My
+  Device / third-party trackers. Uses ZXing for QR scanning (F-Droid
+  friendly, no proprietary ML Kit), and the standard Android Location API.
+
+RepoType: git
+Repo: https://github.com/ymongo/send-gps-data-mobile-app
+
+# The Android project lives in apps/mobile (monorepo subdir).
+# gradleProject is relative to the repo root.
+gradleProject: apps/mobile/android
+gradleCommand: assembleRelease
+
+# Capacitor apps need the web bundle built + synced BEFORE gradle.
+# F-Droid runs these in the repo root (subdir context).
+Builds:
+  - versionName: 1.0
+    versionCode: 1
+    commit: master
+    subdir: apps/mobile
+    gradleProject: android
+    build: |
+      npm ci --ignore-scripts
+      NODE_OPTIONS="--max-old-space-size=4096" npm run prod
+      npx cap sync android
+      cd android && ./gradlew assembleRelease
+    scandeploy: true
+
+# Auto-update: bump versionCode/versionName in build.gradle, tag the repo.
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0
+CurrentVersionCode: 1
+
+# Anti-features / notes
+# - Network location: uses GPS (system permission), no network scan.
+# - No Google Play Services (uses the standard Android Location API).
+# - QR scanner: @capacitor/barcode-scanner with ZXing (Apache-2.0).
