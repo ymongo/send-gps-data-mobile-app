@@ -93,7 +93,6 @@ dependencies {
     implementation "androidx.localbroadcastmanager:localbroadcastmanager:1.1.0"
     implementation project(':capacitor-android')
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation 'com.google.android.gms:play-services-location:21.3.0'
     testImplementation "junit:junit:$junitVersion"
     testImplementation 'net.jqwik:jqwik:1.9.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'

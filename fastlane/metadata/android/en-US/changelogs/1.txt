@@ -1,0 +1,7 @@
+Initial release of Send GPS Data: privacy-first, self-hosted GPS location streaming for Android.
+
+- Stream your live location over WebSocket to any server you own (ws:// or wss://)
+- QR scan of a server URL with the camera (ZXing, open source)
+- Save & switch between favorite servers
+- Built-in Bitcoin (Lightning) tip widget
+- F-Droid friendly: standard Android Location API, no proprietary dependencies

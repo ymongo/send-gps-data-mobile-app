@@ -3,23 +3,18 @@ package com.mongoutils.sendgpsdata;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.location.LocationProvider;
 import android.os.Looper;
 
 import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.pm.PackageManager;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationAvailability;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.Priority;
-
 /**
- * Native GPS capture using FusedLocationProviderClient.
- * Assumes location permissions are already granted by the caller.
+ * Native GPS capture using Android LocationManager.
+ * No Google Play Services dependency — F-Droid compatible.
  */
 public class GpsCapture {
 
@@ -27,8 +22,8 @@ public class GpsCapture {
     private static final long LOCATION_INTERVAL_MS = 1000;
 
     private final Callback callback;
-    private FusedLocationProviderClient fusedClient;
-    private LocationCallback locationCallback;
+    private LocationManager locationManager;
+    private LocationListener locationListener;
     private boolean firstLocationReceived = false;
     private boolean lastAvailability = true;
 
@@ -68,57 +63,82 @@ public class GpsCapture {
             return;
         }
 
-        try {
-            fusedClient = LocationServices.getFusedLocationProviderClient(context);
-        } catch (Exception e) {
-            LogSink.e(TAG, "Play Services not available", e);
-            callback.onError("Google Play Services not available: " + e.getMessage());
+        locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) {
+            callback.onError("LocationManager not available");
+            return;
+        }
+
+        // Check that the GPS provider exists
+        if (locationManager.getProvider(LocationManager.GPS_PROVIDER) == null) {
+            callback.onError("GPS provider not available on this device");
             return;
         }
 
         firstLocationReceived = false;
         lastAvailability = true;
 
-        LocationRequest locationRequest = new LocationRequest.Builder(
-                Priority.PRIORITY_HIGH_ACCURACY, LOCATION_INTERVAL_MS)
-                .setMinUpdateIntervalMillis(LOCATION_INTERVAL_MS)
-                .build();
-
-        locationCallback = new LocationCallback() {
+        locationListener = new LocationListener() {
             @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) return;
+            public void onLocationChanged(Location location) {
+                if (location == null) return;
 
-                for (Location location : locationResult.getLocations()) {
-                    if (!firstLocationReceived) {
-                        firstLocationReceived = true;
-                        callback.onGpsStatusChanged("active");
+                if (!firstLocationReceived) {
+                    firstLocationReceived = true;
+                    callback.onGpsStatusChanged("active");
+                }
+                float speed = computeReliableSpeed(location);
+                callback.onLocationUpdate(location, speed);
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, android.os.Bundle extras) {
+                // status: OUT_OF_SERVICE, TEMPORARILY_UNAVAILABLE, AVAILABLE
+                if (LocationManager.GPS_PROVIDER.equals(provider)) {
+                    if (status == LocationProvider.OUT_OF_SERVICE || status == LocationProvider.TEMPORARILY_UNAVAILABLE) {
+                        if (lastAvailability) {
+                            lastAvailability = false;
+                            callback.onGpsStatusChanged("unavailable");
+                        }
+                    } else if (status == LocationProvider.AVAILABLE) {
+                        if (!lastAvailability) {
+                            lastAvailability = true;
+                            callback.onGpsStatusChanged("active");
+                        }
                     }
-                    float speed = computeReliableSpeed(location);
-                    callback.onLocationUpdate(location, speed);
                 }
             }
 
             @Override
-            public void onLocationAvailability(LocationAvailability availability) {
-                boolean available = availability.isLocationAvailable();
-                if (available && !lastAvailability) {
+            public void onProviderEnabled(String provider) {
+                if (LocationManager.GPS_PROVIDER.equals(provider) && !lastAvailability) {
                     lastAvailability = true;
                     callback.onGpsStatusChanged("active");
-                } else if (!available && lastAvailability) {
+                }
+            }
+
+            @Override
+            public void onProviderDisabled(String provider) {
+                if (LocationManager.GPS_PROVIDER.equals(provider) && lastAvailability) {
                     lastAvailability = false;
                     callback.onGpsStatusChanged("unavailable");
                 }
             }
         };
 
-        requestUpdates(locationRequest);
+        requestUpdates();
     }
 
     @SuppressLint("MissingPermission")
-    private void requestUpdates(LocationRequest locationRequest) {
-        fusedClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-        LogSink.d(TAG, "Location updates requested at " + LOCATION_INTERVAL_MS + "ms interval");
+    private void requestUpdates() {
+        locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                LOCATION_INTERVAL_MS,
+                0f,
+                locationListener,
+                Looper.getMainLooper()
+        );
+        LogSink.d(TAG, "Location updates requested at " + LOCATION_INTERVAL_MS + "ms interval via LocationManager");
     }
 
     /**
@@ -175,12 +195,12 @@ public class GpsCapture {
      * Stop location updates and release resources.
      */
     public void stop() {
-        if (fusedClient != null && locationCallback != null) {
-            fusedClient.removeLocationUpdates(locationCallback);
+        if (locationManager != null && locationListener != null) {
+            locationManager.removeUpdates(locationListener);
             LogSink.d(TAG, "Location updates removed");
         }
-        fusedClient = null;
-        locationCallback = null;
+        locationManager = null;
+        locationListener = null;
         firstLocationReceived = false;
     }
 }

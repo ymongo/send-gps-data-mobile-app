@@ -1,0 +1,21 @@
+Send GPS Data streams your live GPS location over WebSocket to a server YOU own — private, self-hosted, no account, no cloud, no third party.
+
+A do-it-yourself alternative to third-party location trackers, where you keep the keys.
+
+FEATURES
+• Streams GPS (latitude, longitude, accuracy, speed, altitude, heading) over WebSocket to any server exposing ws:// or wss://
+• QR scan of a server URL with the camera (ZXing, open source)
+• Save and switch between favorite servers
+• Real-time console log viewer
+• Built-in Bitcoin (Lightning) tip widget (SvelteKit, Alby direct)
+
+PRIVACY-FIRST
+• No tracking SDKs, no analytics, no account
+• GPS uses the standard Android Location API (no proprietary dependencies)
+• Your location goes to your own machine, over your own network
+
+CONNECT TO ANY SERVER YOU OWN
+Tailscale is one optional convenience, not bundled and not required. You can use any server exposing a WebSocket endpoint: a reverse proxy (Caddy/nginx), a VPS, a LAN-only server, or the companion desktop app.
+
+F-DROID FRIENDLY
+Open source (MIT), built with SvelteKit + Capacitor. QR scanning via ZXing (Apache-2.0). Uses the standard Android Location API — no Google Play Services, fully compatible with F-Droid devices.

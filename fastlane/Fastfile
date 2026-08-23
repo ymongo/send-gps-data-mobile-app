@@ -1,0 +1,22 @@
+# Fastlane configuration for Send GPS Data (Android)
+#
+# F-Droid primarily uses the fastlane/metadata directory for the app listing
+# (title, short/full description, changelog, screenshots). The Fastfile below
+# adds convenience lanes for local builds. F-Droid's buildbot does NOT use
+# this Fastfile — it builds via gradle directly using the metadata only.
+
+default_platform(:android)
+
+platform :android do
+  desc "Build a release APK (web bundle + cap sync + gradle)"
+  lane :build_apk do
+    sh "npm run prod"
+    sh "npx cap sync android"
+    gradle(task: "assembleRelease", project_dir: "android/")
+  end
+
+  desc "Run the release build script (build:apk)"
+  lane :release do
+    sh "bash", "scripts/build-apk.sh"
+  end
+end
