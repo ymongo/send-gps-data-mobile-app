@@ -30,14 +30,15 @@ every release.
 
 - 📡 Streams GPS (lat/long/accuracy/speed/altitude/heading) over **WebSocket** to your own server
 - 🔒 Privacy-first: your location goes to *your* machine, over *your* network
-- 🔍 **QR scan** — point the camera at a **server URL** to fill it in (**ZXing**, open-source)
+- 🔍 **QR scan** — point the camera at a **server URL** to fill it in (**pure Web ZXing**, open-source)
 - ⚡ **Bitcoin (Lightning) tips** — built-in SvelteKit widget (Alby direct), with a **QR code** generated locally to pay with your wallet
 
 ### Connect to any server you own
 
-The app sends to **any** server that exposes a **WebSocket (`ws://` or `wss://`)**
+The app sends to **any** server that exposes a **secure WebSocket (`wss://`)**
 endpoint — the Electron desktop app in the main repo, a Raspberry Pi, a VPS,
-or any self-hosted endpoint.
+or any self-hosted endpoint. In production the transport is always `wss://`
+(cleartext `ws://` is blocked on Android).
 
 - **Tailscale is one optional convenience**, not bundled and not required: it
   gives you an encrypted mesh VPN with automatic TLS so you can reach your
@@ -50,9 +51,9 @@ or any self-hosted endpoint.
 ## 📦 Tech stack & credits
 
 - **Frontend:** [SvelteKit](https://svelte.dev/) (`ssr=false`, prerender) · Tailwind + [DaisyUI](https://daisyui.com/) (synthwave theme)
-- **Mobile runtime:** [Capacitor 7](https://capacitorjs.com/) · native Android service (Java)
-- **GPS:** `@capacitor/geolocation` + standard Android Location API
-- **QR scanning:** [`@capacitor/barcode-scanner`](https://github.com/capacitor-community/barcode-scanner) (**ZXing** on Android, Apache-2.0)
+- **Mobile runtime:** [Capacitor 7](https://capacitorjs.com/) · native Android service (Java, `LocationManager`)
+- **GPS:** native Android `LocationManager` (GPS + network providers) — no Google Play Services
+- **QR scanning:** [`html5-qrcode`](https://github.com/mebjas/html5-qrcode) (pure Web ZXing, Apache-2.0)
 - **QR generation:** [`qrcode`](https://github.com/soldair/node-qrcode) (local, no server)
 - **Lightning tips:** [Alby](https://getalby.com/) LNURL (direct, no server) — widget inspired by [Twenty Uno's Lightning widget](https://github.com/reneaaron/lightning-widget)
 - **Tests:** [Playwright](https://playwright.dev/) (e2e) · [Vitest](https://vitest.dev/) (unit) · JUnit (native)
@@ -87,7 +88,7 @@ npm run build:apk            # = bash scripts/build-apk.sh (build + sync + gradl
 - GPS uses the standard Android Location API.
 - Remote log POST (`LogSink`) is **off by default**; only enabled per-build
   with `PROD_DEBUG_LOGS=true`.
-- QR scanner is **ZXing** (open source, Apache-2.0) — **F-Droid friendly**.
+- QR scanner is **html5-qrcode** (pure Web ZXing, open source, Apache-2.0) — **F-Droid friendly**. 100% Google-free: no ML Kit, no Play Services.
 
 ---
 
