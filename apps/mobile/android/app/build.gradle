@@ -26,11 +26,10 @@ android {
         applicationId "com.mongoutils.sendgpsdata"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "0.1.0"
+        versionCode 2
+        versionName "0.1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // Only ship the ABIs real phones use. Excludes x86/x86_64 (emulators only),
-        // which cuts ~11 MB of native ML Kit barcode libs from the APK.
+        // Only ship the ABIs real phones use. Excludes x86/x86_64 (emulators only).
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a"
         }
@@ -106,12 +105,3 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
-
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
-}

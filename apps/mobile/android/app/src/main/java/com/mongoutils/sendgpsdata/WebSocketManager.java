@@ -20,6 +20,13 @@ import java.util.concurrent.TimeUnit;
  */
 public class WebSocketManager {
 
+    /**
+     * Controls high-frequency debug logging (per-GPS-send and per-heartbeat).
+     * Disabled by default to save battery; the UI (Settings → Console Logs)
+     * toggles it via NativeService.setDebugLogging().
+     */
+    public static volatile boolean debugLoggingEnabled = false;
+
     private final Callback callback;
     private OkHttpClient httpClient;
     private WebSocket webSocket;
@@ -199,6 +206,9 @@ public class WebSocketManager {
 
         try {
             ws.send(buildGpsJson(location, deviceId, speedMps));
+            if (debugLoggingEnabled) {
+                LogSink.d("WS", "GPS sent: " + String.format(java.util.Locale.US, "%.5f,%.5f acc=%.0fm speed=%.1f", location.getLatitude(), location.getLongitude(), location.getAccuracy(), speedMps));
+            }
         } catch (RuntimeException e) {
             if (callback != null) {
                 callback.onError("Failed to serialize GPS data: " + e.getMessage());
@@ -220,6 +230,9 @@ public class WebSocketManager {
 
         try {
             ws.send(buildPingJson(deviceId));
+            if (debugLoggingEnabled) {
+                LogSink.d("WS", "Ping sent");
+            }
         } catch (RuntimeException e) {
             if (callback != null) {
                 callback.onError("Failed to send ping: " + e.getMessage());

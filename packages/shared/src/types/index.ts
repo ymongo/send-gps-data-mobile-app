@@ -1,4 +1,13 @@
 // GPS Data Types
+// This is the shared TYPE CONTRACT between the Android mobile app and the
+// desktop app over WebSocket.
+//   - Desktop imports these types (apps/desktop/...) to consume the data.
+//   - The mobile app is Java: it cannot import TS types. The SAME contract is
+//     guaranteed there by the serialization test:
+//     apps/mobile/android/app/src/test/java/com/mongoutils/sendgpsdata/
+//       WebSocketManagerGpsSerializationTest.java
+//     (verify buildGpsJson() emits exactly these fields).
+// Keep the fields below in sync with both the Java buildGpsJson() and that test.
 export type GpsData = {
 	latitude: number;
 	longitude: number;

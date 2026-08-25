@@ -53,12 +53,11 @@
   "dependencies": {
     "@capacitor/android": "^7.5.0",
     "@capacitor/app": "^7.1.2",
-    "@capacitor/barcode-scanner": "^2.2.6",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
     "@capacitor/device": "^7.0.2",
-    "@capacitor/geolocation": "^7.0.0",
     "gps-shared": "*",
+    "html5-qrcode": "^2.3.8",
     "qrcode": "^1.5.4"
   }
 }

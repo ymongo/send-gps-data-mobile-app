@@ -8,6 +8,9 @@ import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.os.Looper;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -131,14 +134,32 @@ public class GpsCapture {
 
     @SuppressLint("MissingPermission")
     private void requestUpdates() {
-        locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                LOCATION_INTERVAL_MS,
-                0f,
-                locationListener,
-                Looper.getMainLooper()
-        );
-        LogSink.d(TAG, "Location updates requested at " + LOCATION_INTERVAL_MS + "ms interval via LocationManager");
+        // Use both GPS and network providers to get a fast fix (like the old
+        // FusedLocationProvider PRIORITY_HIGH_ACCURACY): network gives a quick
+        // coarse position indoors, GPS refines it when satellites are visible.
+        List<String> providers = new ArrayList<>();
+        if (locationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
+            providers.add(LocationManager.GPS_PROVIDER);
+        }
+        if (locationManager.getProvider(LocationManager.NETWORK_PROVIDER) != null) {
+            providers.add(LocationManager.NETWORK_PROVIDER);
+        }
+
+        if (providers.isEmpty()) {
+            callback.onError("No location providers available");
+            return;
+        }
+
+        for (String provider : providers) {
+            locationManager.requestLocationUpdates(
+                    provider,
+                    LOCATION_INTERVAL_MS,
+                    0f,
+                    locationListener,
+                    Looper.getMainLooper()
+            );
+        }
+        LogSink.d(TAG, "Location updates requested at " + LOCATION_INTERVAL_MS + "ms interval via providers: " + providers);
     }
 
     /**

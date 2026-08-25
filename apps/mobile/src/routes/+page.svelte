@@ -4,8 +4,8 @@
 	import SettingsButton from '../comps/SettingsButton.svelte';
 	import SettingsMenu from '../comps/SettingsMenu.svelte';
 	import { NativeService } from '$lib/plugins/native-service';
+	import { NativeLocation } from '$lib/plugins/native-location';
 	import { Device } from '@capacitor/device';
-	import { Geolocation } from '@capacitor/geolocation';
 	import { App } from '@capacitor/app';
 	import { initConsoleLog } from '$lib/services/console-log.service.svelte';
 	import { appUiState } from '$lib/services/favorites.service.svelte';
@@ -40,7 +40,7 @@
 		try {
 			App.addListener('backButton', () => {
 				// If a QR/scan modal is open, don't also close the menu — the modal's
-				// own back handler (or the native scanner's back) handles it.
+				// own back handler handles it.
 				if (qrScannerState.open) return;
 				if (appUiState.settingsOpen) {
 					appUiState.settingsOpen = false;
@@ -65,20 +65,17 @@
 
 	async function requestLocationPermission(): Promise<{ granted: boolean; error?: string }> {
 		try {
-			// First check current state — distinguishes "services disabled" from "permission denied"
-			const current = await Geolocation.checkPermissions();
-			if (current.location === 'granted') {
+			// First check the current state — avoids showing the dialog when already granted.
+			const current = await NativeLocation.checkPermission();
+			if (current.granted) {
 				return { granted: true };
 			}
-			const status = await Geolocation.requestPermissions({ permissions: ['location'] });
-			return { granted: status.location === 'granted' };
-		} catch (e: any) {
-			// Plugin rejects with LOCATION_DISABLED (code 7) when system location services are off
-			const msg = (e?.message || '') as string;
-			const code = (e?.code || '') as string;
-			if (code === 'OS-PLUG-GLOC-0007' || /location services are not enabled/i.test(msg)) {
+			const status = await NativeLocation.requestPermission();
+			if (!status.servicesEnabled) {
 				return { granted: false, error: 'Please enable location on your smartphone.' };
 			}
+			return { granted: status.granted, error: status.granted ? undefined : 'Location permission denied.' };
+		} catch (e) {
 			return { granted: false, error: 'Location permission denied.' };
 		}
 	}

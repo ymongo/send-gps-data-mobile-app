@@ -1,5 +1,12 @@
 package com.mongoutils.sendgpsdata;
 
+// Serialization contract test.
+// This verifies that WebSocketManager.buildGpsJson() emits exactly the fields
+// of the shared `GpsData` type defined in:
+//   packages/shared/src/types/index.ts  (the mobile<->desktop type contract)
+// Keep this test and GpsData in sync — a change on either side that breaks the
+// contract fails here.
+
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.*;
 

@@ -4,10 +4,19 @@
   themes: light --default, dark --prefersdark, synthwave;
 };
 
-/* When the native QR camera (ML Kit) is active, the WebView background must be
+/* When the native QR camera is active, the WebView background must be
    transparent so the camera preview shows through behind the overlay UI. */
 html.qr-scan-active,
 html.qr-scan-active body {
   background: transparent !important;
+}
+
+/* Hide html5-qrcode's built-in scan reticle (the shaded region + white corner
+   brackets). We draw our own single pink square reticle in QrScannerModal.svelte
+   (the .qr-reticle overlay), so the library's native frame is redundant.
+   KEEP-IF-REVERTING: to restore the library's default corners, delete the
+   .qr-shaded-region rule below. */
+.qr-shaded-region {
+  display: none !important;
 }
 

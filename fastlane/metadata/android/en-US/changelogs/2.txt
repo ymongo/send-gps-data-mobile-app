@@ -1,0 +1,7 @@
+Send GPS Data 0.1.1 — privacy & compatibility patch.
+
+- 100% Google-free APK: ML Kit and Play Services fully removed (QR scan now uses pure open-source ZXing; native location permission)
+- Faster GPS fix: uses both GPS and network providers
+- F-Droid friendly: no proprietary dependencies, no Google Play Services
+- QR scan reticle cleaned up
+- Faster, smaller APK (~1.3 MB vs ~12 MB)

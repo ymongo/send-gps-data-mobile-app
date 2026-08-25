@@ -1,8 +1,8 @@
 /**
  * Shared QR scanner modal state (Svelte 5 module store, `.service.svelte.ts`).
  *
- * Modal state for the primary QR scanner using the official
- * `@capacitor/barcode-scanner` plugin (ZXing forced on Android). Mounted at the app root
+ * Modal state for the primary QR scanner using the web `html5-qrcode` library
+ * (pure ZXing running in the WebView). Mounted at the app root
  * (+layout.svelte). The scan buttons just open/close this store.
  */
 export const qrScannerState = $state<{

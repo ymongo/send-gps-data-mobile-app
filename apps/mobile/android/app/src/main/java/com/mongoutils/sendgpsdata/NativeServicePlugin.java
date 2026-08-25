@@ -113,6 +113,27 @@ public class NativeServicePlugin extends Plugin {
         call.resolve();
     }
 
+    /**
+     * Enables/disables high-frequency debug logging (per-GPS-send + per-heartbeat)
+     * in WebSocketManager. Off by default to save battery.
+     */
+    @PluginMethod
+    public void setDebugLogging(PluginCall call) {
+        boolean enabled = call.getBoolean("enabled", false);
+        WebSocketManager.debugLoggingEnabled = enabled;
+        JSObject data = new JSObject();
+        data.put("enabled", WebSocketManager.debugLoggingEnabled);
+        call.resolve(data);
+    }
+
+    /** Returns whether high-frequency debug logging is currently enabled. */
+    @PluginMethod
+    public void getDebugLogging(PluginCall call) {
+        JSObject data = new JSObject();
+        data.put("enabled", WebSocketManager.debugLoggingEnabled);
+        call.resolve(data);
+    }
+
     @Override
     protected void handleOnDestroy() {
         unregisterReceiver();

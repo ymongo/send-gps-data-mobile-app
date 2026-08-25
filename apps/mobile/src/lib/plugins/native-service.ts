@@ -21,6 +21,8 @@ export interface NativeServicePlugin {
   ): Promise<{ remove: () => void }>;
   getRecentLogs(): Promise<{ logs: string[] }>;
   clearLogs(): Promise<void>;
+  setDebugLogging(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
+  getDebugLogging(): Promise<{ enabled: boolean }>;
   removeAllListeners(): Promise<void>;
 }
 
