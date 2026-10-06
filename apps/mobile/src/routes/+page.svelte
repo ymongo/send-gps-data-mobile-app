@@ -10,6 +10,7 @@
 	import { initConsoleLog } from '$lib/services/console-log.service.svelte';
 	import { appUiState } from '$lib/services/favorites.service.svelte';
 	import { qrScannerState } from '$lib/services/qrScanner.service.svelte';
+	import { isFatalDisconnect, isFatalTrackingError } from '$lib/services/tracking-lifecycle';
 	import {
 		dotsToShow,
 		startDotAnimation,
@@ -103,7 +104,7 @@
 		const deviceId = deviceInfo.identifier;
 
 		connListener?.();
-		connListener = (await NativeService.addListener('connectionState', (event) => {
+		connListener = (await NativeService.addListener('connectionState', async (event) => {
 			connectionState = event.state;
 			connectionMessage = event.message || '';
 
@@ -119,6 +120,19 @@
 					NativeService.stop();
 					removeConnectionListeners();
 				} else if (appState === 'running' || appState === 'reconnecting') {
+					if (event.state === 'disconnected' && isFatalDisconnect({ reason: event.message })) {
+						// The link is gone for good (peer closed on purpose, or the
+						// desktop reported this device dropped). Stop the service so
+						// the "GPS tracking is active" notification is removed.
+						stopDotAnimation();
+						appState = 'idle';
+						connectionState = 'disconnected';
+						logMessage = event.message || 'Connection lost';
+						connectionMessage = '';
+						await NativeService.stop().catch(() => {});
+						removeConnectionListeners();
+						return;
+					}
 					appState = 'reconnecting';
 					connectionMessage = event.message || 'Reconnecting...';
 					startDotAnimation();
@@ -132,19 +146,18 @@
 		})).remove;
 
 		errListener?.();
-		errListener = (await NativeService.addListener('error', (event) => {
+		errListener = (await NativeService.addListener('error', async (event) => {
 			logMessage = event.message;
-			if (appState === 'starting') {
-				stopDotAnimation();
-				appState = 'error';
-				NativeService.stop();
-				removeConnectionListeners();
-			}
-			if (event.message === 'Max reconnection attempts reached') {
+			// A fatal error means the native service is tearing itself down and
+			// removing the "GPS tracking is active" notification. Mirror that here
+			// so the UI never keeps claiming the session is alive, and stop the
+			// service ourselves in case the teardown was triggered from the web side.
+			if (appState === 'starting' || isFatalTrackingError(event.message)) {
 				stopDotAnimation();
 				appState = 'idle';
+				connectionState = 'disconnected';
 				connectionMessage = '';
-				NativeService.stop();
+				await NativeService.stop().catch(() => {});
 				removeConnectionListeners();
 			}
 		})).remove;

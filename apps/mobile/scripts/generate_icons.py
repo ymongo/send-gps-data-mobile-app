@@ -1,16 +1,13 @@
 #!/usr/bin/env python
-"""Generate Android launcher icons from logo.svg.
+"""Generate Android launcher icons from GLM logo SVGs.
 
-Renders the SVG at high resolution via Chromium headless (installed with the
+Renders the SVGs at high resolution via Chromium headless (installed with the
 Hermes playwright browsers) and composites onto the app background color
 (#2D1B69) for legacy icons, or keeps transparency for adaptive foregrounds.
 
-Centering: after render, the PNG is cropped to its real alpha bounding box,
-then re-centered on the canvas with a generous, homogeneous padding so the
-logo occupies only a fraction of the canvas (legacy ~52%, foreground ~40%).
+The GLM glyph is fully symmetric: no optical bias needed, no recoloring.
 """
 
-import re
 import subprocess
 import sys
 import tempfile
@@ -20,20 +17,16 @@ from PIL import Image
 
 # --- config ---------------------------------------------------------------
 REPO = Path(__file__).resolve().parents[1]
-SVG = REPO / "static" / "logo.svg"
 RES = REPO / "android" / "app" / "src" / "main" / "res"
 
+LEGACY_SVG = REPO / "static" / "logo.svg"
+FOREGROUND_SVG = REPO / "static" / "glm-launcher-foreground.svg"
+
 BG = (0x2D, 0x1B, 0x69)          # #2D1B69
-PINK = "#E879F9"
 
 # fraction of the canvas occupied by the logo bbox (rest = homogeneous padding)
 LEGACY_RATIO = 0.52
 FOREGROUND_RATIO = 0.40
-
-# optical right-shift to compensate for the left-heavy smartphone body
-# (the pure alpha centroid still *looks* off to the left). Fraction of the
-# scaled content width. Tuned visually in a 412x892 fake-screen preview.
-OPTICAL_BIAS_X = 0.025
 
 # render size (high-res master, then downscale with LANCZOS)
 RENDER = 864
@@ -71,13 +64,9 @@ def find_chromium() -> Path:
 
 
 # --- svg -> png via headless chromium -------------------------------------
-def render_svg_to_png(chromium: Path, svg_path: Path, size: int, out: Path,
-                      stroke: str | None = None) -> None:
+def render_svg_to_png(chromium: Path, svg_path: Path, size: int, out: Path) -> None:
     """Render svg_path scaled to `size`x`size` onto a transparent PNG."""
     svg_text = svg_path.read_text(encoding="utf-8")
-    if stroke:
-        # recolour every path
-        svg_text = re.sub(r"<path ", f'<path fill="{stroke}" ', svg_text)
     html = f"""<!doctype html><meta charset=utf-8>
 <style>html,body{{margin:0;background:transparent}}svg{{display:block;width:{size}px;height:{size}px}}</style>
 {svg_text}"""
@@ -118,11 +107,9 @@ def compute_centroid(im: Image.Image) -> tuple[float, float]:
     """Compute the alpha-weighted centroid (center of mass) of the image."""
     alpha = im.getchannel("A")
     w, h = alpha.size
-    # total mass
     total = sum(alpha.getdata())
     if total == 0:
         return w / 2.0, h / 2.0
-    # weighted sums
     xs = 0.0
     ys = 0.0
     pix = alpha.load()
@@ -136,28 +123,20 @@ def compute_centroid(im: Image.Image) -> tuple[float, float]:
 
 
 def center_on_canvas(im: Image.Image, canvas_size: int, ratio: float,
-                     bg: tuple[int, int, int, int],
-                     optical_bias_x: float = 0.0) -> Image.Image:
-    """Scale `im` (cropped to bbox) to fit inside `ratio` of the canvas and
-    center it *optically* by aligning the alpha-weighted centroid with the
-    canvas centre (instead of centring the bounding box).
-
-    `optical_bias_x` (fraction of the scaled content width) shifts the
-    content slightly to the right to compensate for asymmetric visual weight
-    (dense solid body on the left, thin pin on the right): the pure centroid
-    still *looks* left-heavy, so we over-correct a bit."""
+                      bg: tuple[int, int, int, int]) -> Image.Image:
+    """Scale `im` (cropped to bbox) to fit inside `ratio` of the canvas
+    and center it by aligning the alpha-weighted centroid with the canvas centre."""
     target = int(canvas_size * ratio)
     scale = target / max(im.width, im.height)
     new_w = max(1, round(im.width * scale))
     new_h = max(1, round(im.height * scale))
     im = im.resize((new_w, new_h), Image.LANCZOS)
 
-    # centroid of the resized content
     cx, cy = compute_centroid(im)
 
     canvas = Image.new("RGBA", (canvas_size, canvas_size), bg)
     centre = canvas_size / 2.0
-    off_x = int(round(centre - cx + new_w * optical_bias_x))
+    off_x = int(round(centre - cx))
     off_y = int(round(centre - cy))
     canvas.alpha_composite(im, (off_x, off_y))
     return canvas
@@ -180,31 +159,37 @@ def main() -> None:
 
     tmp = Path(tempfile.mkdtemp(prefix="icon_gen_"))
 
-    # master render at RENDER px, cropped to real content bbox
+    # Master render for legacy icons: GLM glyph on transparent background
     master_raw = tmp / "master_raw.png"
-    render_svg_to_png(chromium, SVG, RENDER, master_raw, stroke=PINK)
+    render_svg_to_png(chromium, LEGACY_SVG, RENDER, master_raw)
     master = crop_to_alpha_bbox(Image.open(master_raw).convert("RGBA"))
     print(f"master {RENDER}px OK, bbox content: {master.width}x{master.height}")
 
+    # Master render for adaptive foregrounds: GLM launcher foreground
+    fg_raw = tmp / "fg_raw.png"
+    render_svg_to_png(chromium, FOREGROUND_SVG, RENDER, fg_raw)
+    fg_master = crop_to_alpha_bbox(Image.open(fg_raw).convert("RGBA"))
+    print(f"foreground master {RENDER}px OK, bbox content: {fg_master.width}x{fg_master.height}")
+
+    # Legacy square/round icons on solid BG
     for density, px in LEGACY.items():
         folder = RES / f"mipmap-{density}"
         folder.mkdir(parents=True, exist_ok=True)
 
-        # square legacy icon on solid bg, logo = LEGACY_RATIO of canvas
         square = folder / "ic_launcher.png"
-        center_on_canvas(master, px, LEGACY_RATIO, BG + (255,),
-                         optical_bias_x=OPTICAL_BIAS_X).save(square)
+        center_on_canvas(master, px, LEGACY_RATIO, BG + (255,)).save(square)
 
-        # round legacy icon
         rnd = round_mask(Image.open(square).convert("RGBA"))
         rnd.save(folder / "ic_launcher_round.png")
         print(f"{density:8s} {px:3d}px  ic_launcher.png + round")
 
+    # Adaptive foreground icons (transparent bg)
     for density, px in FOREGROUND.items():
         folder = RES / f"mipmap-{density}"
+        folder.mkdir(parents=True, exist_ok=True)
+
         fg = folder / "ic_launcher_foreground.png"
-        center_on_canvas(master, px, FOREGROUND_RATIO, (0, 0, 0, 0),
-                         optical_bias_x=OPTICAL_BIAS_X).save(fg)
+        center_on_canvas(fg_master, px, FOREGROUND_RATIO, (0, 0, 0, 0)).save(fg)
         print(f"{density:8s} {px:3d}px  ic_launcher_foreground.png")
 
     print("done ->", RES)

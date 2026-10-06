@@ -80,8 +80,9 @@ public class GpsTrackingService extends Service implements
 
         if (url == null || url.isEmpty() || deviceId == null || deviceId.isEmpty()) {
             LogSink.e(TAG, "Missing url or deviceId in intent");
-            broadcastError("Missing url or deviceId");
-            stopSelf();
+            // stopTracking() both notifies the UI and tears the service down,
+            // which is what actually removes the foreground notification.
+            stopTracking("Missing url or deviceId");
             return START_NOT_STICKY;
         }
 
@@ -110,6 +111,19 @@ public class GpsTrackingService extends Service implements
         return null;
     }
 
+    /**
+     * Ends tracking for good: stops GPS capture, closes the socket, cancels
+     * reconnection and — via onDestroy — removes the "GPS tracking is active"
+     * foreground notification. Must be the single exit for every path where
+     * tracking is no longer actually running, so the notification can never
+     * outlive the tracking it advertises.
+     */
+    private void stopTracking(String reason) {
+        LogSink.e(TAG, "Stopping tracking: " + reason);
+        broadcastError(reason);
+        stopSelf();
+    }
+
     @Override
     public void onDestroy() {
         LogSink.d(TAG, "Service onDestroy");
@@ -127,7 +141,14 @@ public class GpsTrackingService extends Service implements
             heartbeatTimer.stop();
         }
 
+        // STOP_FOREGROUND_REMOVE (the `true` here) both detaches the service
+        // from the foreground and cancels notification NOTIFICATION_ID, so
+        // "GPS tracking is active" cannot survive the service dying.
         stopForeground(true);
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager != null) {
+            manager.cancel(NOTIFICATION_ID);
+        }
         super.onDestroy();
     }
 
@@ -146,6 +167,13 @@ public class GpsTrackingService extends Service implements
     @Override
     public void onDisconnected(String reason) {
         LogSink.d(TAG, "WebSocket disconnected: " + reason);
+        if (TrackingLifecycle.isFatalDisconnect(reason)) {
+            // The peer closed on purpose (code 1000: no heartbeat, replaced by
+            // a new session, server shut down). Reconnecting would be wrong —
+            // and would keep the "tracking is active" notification up.
+            stopTracking(reason);
+            return;
+        }
         broadcastConnectionState("disconnected", reason);
         heartbeatTimer.pause();
         reconnectionHandler.scheduleReconnect();
@@ -154,6 +182,10 @@ public class GpsTrackingService extends Service implements
     @Override
     public void onError(String message) {
         LogSink.e(TAG, "Error: " + message);
+        if (TrackingLifecycle.isFatalTrackingError(message)) {
+            stopTracking(message);
+            return;
+        }
         broadcastError(message);
     }
 
@@ -207,8 +239,9 @@ public class GpsTrackingService extends Service implements
 
     @Override
     public void onMaxAttemptsReached() {
-        LogSink.e(TAG, "Max reconnection attempts reached");
-        broadcastError("Max reconnection attempts reached");
+        // Every reconnect attempt has failed: the link is gone for good.
+        // Stopping the service is what clears the foreground notification.
+        stopTracking("Max reconnection attempts reached");
     }
 
     // -------------------------------------------------------------------------

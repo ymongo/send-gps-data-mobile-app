@@ -290,6 +290,14 @@ public class WebSocketManager {
 
                 if ("server-ping".equals(type)) {
                     ws.send(buildPongJson(deviceId));
+                } else if (TrackingLifecycle.isDeviceDisconnectedMessage(text)) {
+                    // The desktop reports this device has dropped out of the
+                    // session. Tracking is over; the service must stop so its
+                    // foreground notification goes with it.
+                    if (callback != null) {
+                        callback.onDisconnected("Connection closed (code=" + TrackingLifecycle.DELIBERATE_CLOSE_CODE
+                                + ", reason=device-disconnected)");
+                    }
                 }
             } catch (JSONException e) {
                 // Ignore malformed messages

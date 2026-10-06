@@ -1,3 +1,13 @@
+# Working / spec folder (non-versioned)
+.spec/
+
+# Test artifacts
+.jqwik-database
+
+# Local setup / build artifacts (not app code)
+.hermes-setup-emulator.sh
+packages/shared/src/types/index.js
+
 # Dependencies
 node_modules/
 

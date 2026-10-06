@@ -31,18 +31,53 @@ public class GpsCapture {
     private boolean lastAvailability = true;
 
     // Reliable speed computation state.
-    private Location lastReliableLocation = null;   // last position with good accuracy
+    // Updated only when a speed sample is actually derived, so short fixes
+    // do not shift the haversine baseline and freeze the last speed.
+    private Location lastReliableLocation = null;   // last position used as speed baseline
     private long lastReliableTime = 0;
     private float lastComputedSpeed = 0f;
 
-    /** Max accepted horizontal accuracy (meters) for a "reliable" position used in speed calc. */
-    private static final float MAX_ACCURACY_METERS = 15f;
+    // Stationary detector: GPS noise of a few metres must not keep the EMA
+    // above the deadband (~1.4 m/s ≈ 5 km/h) while the device is stopped.
+    private Location stationaryAnchor = null;
+    private long stationaryAnchorTime = 0;
+    private boolean stationary = false;
+
+    /**
+     * Max accepted horizontal accuracy (meters) for a position used as a
+     * haversine speed baseline. 50 m, not 15 m: an urban or tree-covered fix
+     * is routinely 20–50 m, and rejecting it left the overlay at 0 while the
+     * device was moving. Doppler speed does not use this gate.
+     */
+    private static final float MAX_ACCURACY_METERS = 50f;
     /** Positions closer in time than this (ms) are too noisy to derive speed from. */
     private static final long MIN_SPEED_DELTA_MS = 2000;
     /** Below this speed (m/s) we report exactly 0 — kills stationary jitter. */
     private static final float SPEED_DEADBAND_MPS = 0.5f;
     /** Exponential smoothing factor for speed (0..1). Higher = more responsive. */
     private static final float SPEED_SMOOTHING = 0.7f;
+    /**
+     * Floor radius (m) around the stationary anchor. The effective radius grows
+     * with announced accuracy so GPS drift while stopped still latches.
+     */
+    private static final float STATIONARY_RADIUS_METERS = 4f;
+    /**
+     * Multiplier on announced accuracy for the effective stationary radius.
+     * Stopped GPS noise grows with reported imprecision; a fixed radius is
+     * re-anchored forever and never latches.
+     */
+    private static final float STATIONARY_ACCURACY_FACTOR = 1.5f;
+    /**
+     * Extra factor required to leave the stationary state. A plain crossing of
+     * the radius flickers when the fix oscillates on the boundary.
+     */
+    private static final float STATIONARY_EXIT_HYSTERESIS = 1.5f;
+    /**
+     * Minimum time (ms) the device must remain inside {@link #STATIONARY_RADIUS_METERS}
+     * before speed is forced to 0. Shorter than a real slow move, long enough
+     * that a single noisy jump does not latch the detector.
+     */
+    private static final long STATIONARY_WINDOW_MS = 4000;
 
     public interface Callback {
         void onLocationUpdate(Location location, float speedMps);
@@ -163,17 +198,56 @@ public class GpsCapture {
     }
 
     /**
-     * Computes a reliable speed (m/s) from consecutive positions with good accuracy.
-     * - Ignores positions whose accuracy is too poor (noise → phantom speed).
-     * - Derives speed from haversine distance / elapsed time between reliable fixes.
-     * - Applies a deadband so a stationary device reports exactly 0 (no jitter).
-     * - Smooths with exponential moving average for stability while staying responsive.
+     * Computes a reliable speed (m/s). Package-private so the JVM unit tests
+     * can drive it without a {@link LocationManager}; production calls it
+     * only from {@code onLocationChanged}.
+     * - Primary source is the GPS chip's Doppler speed
+     *   ({@link Location#getSpeed()}), which stays valid when the position
+     *   itself is only good to tens of metres. Used only for
+     *   {@link LocationManager#GPS_PROVIDER} fixes that report a speed.
+     * - Fallback is haversine distance / elapsed time, and only from fixes
+     *   whose accuracy is within {@link #MAX_ACCURACY_METERS}. A worse fix
+     *   keeps the last state and decays the smoothed speed toward 0, so a
+     *   100 m network fix cannot fabricate motion.
+     * - The speed baseline moves only when a delta sample is actually
+     *   computed, so fixes closer than {@link #MIN_SPEED_DELTA_MS} cannot
+     *   shrink dt and freeze the last speed.
+     * - Forces exactly 0 while the device stays inside an accuracy-scaled
+     *   stationary radius for {@link #STATIONARY_WINDOW_MS}: the detector
+     *   outranks both sources, so Doppler noise cannot hold the EMA above
+     *   the deadband (~5 km/h) when stopped.
+     * - Applies a deadband so a near-stop reports exactly 0 (no jitter).
+     * - Smooths with an exponential moving average for stability while
+     *   staying responsive.
      */
-    private float computeReliableSpeed(Location location) {
+    float computeReliableSpeed(Location location) {
         long now = location.getTime();
 
-        // If accuracy is poor, keep last reliable state but don't update position;
-        // return smoothed speed decayed toward 0 so an inaccurate fix can't fabricate speed.
+        // Stopped wins over every speed source. A GPS chip can still report a
+        // small Doppler speed from multipath while the device has not moved.
+        if (isStationary(location, now)) {
+            // Drop the speed baseline so the first post-stop sample is not
+            // inflated by the distance accumulated while we were "stopped".
+            lastReliableLocation = null;
+            lastReliableTime = 0;
+            lastComputedSpeed = 0f;
+            return 0f;
+        }
+
+        // Doppler speed from the GPS chip. Horizontal accuracy does not gate
+        // this: that is the whole point — a 40 m fix can still carry a
+        // trustworthy speed, which the old delta-only path reported as 0.
+        if (hasGpsProviderSpeed(location)) {
+            lastComputedSpeed = smooth(location.getSpeed());
+            // A Doppler sample is not a position baseline. Leave the haversine
+            // anchor untouched so a later speed-less fix still measures dt
+            // from the last accurate position, not from this one.
+            return lastComputedSpeed;
+        }
+
+        // Delta fallback. Poor accuracy (or none) must not invent a speed
+        // from position noise; decay what we had so the overlay does not
+        // stick on the last moving sample either.
         if (!location.hasAccuracy() || location.getAccuracy() > MAX_ACCURACY_METERS) {
             lastComputedSpeed = applyDeadband(lastComputedSpeed * 0.5f);
             return lastComputedSpeed;
@@ -186,14 +260,95 @@ public class GpsCapture {
                         lastReliableLocation.getLatitude(), lastReliableLocation.getLongitude(),
                         location.getLatitude(), location.getLongitude());
                 float instantSpeed = distMeters / (deltaMs / 1000f);
-                lastComputedSpeed = applyDeadband(
-                        SPEED_SMOOTHING * instantSpeed + (1f - SPEED_SMOOTHING) * lastComputedSpeed);
+                lastComputedSpeed = smooth(instantSpeed);
+                lastReliableLocation = location;
+                lastReliableTime = now;
             }
+            // else: keep the previous baseline so a short interval cannot
+            // shrink dt and freeze the last computed speed.
+        } else {
+            lastReliableLocation = location;
+            lastReliableTime = now;
         }
 
-        lastReliableLocation = location;
-        lastReliableTime = now;
         return lastComputedSpeed;
+    }
+
+    /**
+     * True when this fix carries the GPS chip's own speed. Network and fused
+     * providers also expose {@link Location#hasSpeed()}, but that value is
+     * itself derived from coarse positions and is not trusted here.
+     */
+    private static boolean hasGpsProviderSpeed(Location location) {
+        return location.hasSpeed()
+                && LocationManager.GPS_PROVIDER.equals(location.getProvider());
+    }
+
+    /**
+     * Runs the stationary detector and reports whether it has latched.
+     * Accuracy-blind on purpose: a stopped device under trees still drifts
+     * inside a large accuracy circle, and that is exactly when we must
+     * force 0 rather than trust a noisy Doppler sample.
+     */
+    private boolean isStationary(Location location, long now) {
+        updateStationaryState(location, now);
+        return stationary;
+    }
+
+    /** EMA then deadband, shared by the Doppler path and the delta fallback. */
+    private float smooth(float instantSpeed) {
+        return applyDeadband(
+                SPEED_SMOOTHING * instantSpeed + (1f - SPEED_SMOOTHING) * lastComputedSpeed);
+    }
+
+    /**
+     * Tracks whether the device has stayed within an accuracy-scaled radius of
+     * an anchor for at least {@link #STATIONARY_WINDOW_MS}. Leaving requires a
+     * clear overshoot ({@link #STATIONARY_EXIT_HYSTERESIS}) so boundary noise
+     * does not drop the stationary state.
+     */
+    private void updateStationaryState(Location location, long now) {
+        if (stationaryAnchor == null) {
+            stationaryAnchor = location;
+            stationaryAnchorTime = now;
+            stationary = false;
+            return;
+        }
+
+        float radius = stationaryRadiusMeters(location);
+        float driftMeters = haversineDistanceMeters(
+                stationaryAnchor.getLatitude(), stationaryAnchor.getLongitude(),
+                location.getLatitude(), location.getLongitude());
+
+        // Already stopped: demand a clear exit so oscillation around the
+        // radius cannot flicker the state. Entering still uses the raw radius.
+        float exitRadius = stationary
+                ? radius * STATIONARY_EXIT_HYSTERESIS
+                : radius;
+        if (driftMeters > exitRadius) {
+            stationaryAnchor = location;
+            stationaryAnchorTime = now;
+            stationary = false;
+            return;
+        }
+
+        if (!stationary && now - stationaryAnchorTime >= STATIONARY_WINDOW_MS) {
+            stationary = true;
+            lastComputedSpeed = 0f;
+        }
+    }
+
+    /**
+     * Effective stationary radius: at least {@link #STATIONARY_RADIUS_METERS},
+     * otherwise {@link #STATIONARY_ACCURACY_FACTOR} times announced accuracy.
+     * Without accuracy, fall back to the floor so a missing report cannot
+     * disable the detector.
+     */
+    private static float stationaryRadiusMeters(Location location) {
+        if (!location.hasAccuracy()) {
+            return STATIONARY_RADIUS_METERS;
+        }
+        return Math.max(STATIONARY_RADIUS_METERS, location.getAccuracy() * STATIONARY_ACCURACY_FACTOR);
     }
 
     private float applyDeadband(float speed) {

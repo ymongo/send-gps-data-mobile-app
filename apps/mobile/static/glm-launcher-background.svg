@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <title>Méridienne — background d'icône adaptative Android (piste glm-5.3)</title>
+  <desc>Surface pleine violet profond, dégradé radial reprenant la palette du splash existant (#2D1B69 vers #1A103D). Indépendante du foreground, aucun contour.</desc>
+  <defs>
+    <radialGradient id="meridienne-fond" cx="54" cy="54" r="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2D1B69"/>
+      <stop offset="1" stop-color="#1A103D"/>
+    </radialGradient>
+  </defs>
+  <rect width="108" height="108" fill="url(#meridienne-fond)"/>
+</svg>

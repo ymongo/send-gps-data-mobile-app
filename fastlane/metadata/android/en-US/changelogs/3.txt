@@ -1,0 +1,6 @@
+Send GPS Data 0.1.2 — tracking reliability and visual refresh.
+
+- More robust tracking: lifecycle handling reworked (pause/resume, service restarts)
+- GPS capture and WebSocket streaming hardened
+- New launcher, splash and notification icons
+- Fastlane metadata: app icon and phone screenshots
