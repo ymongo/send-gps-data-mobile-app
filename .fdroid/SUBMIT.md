@@ -20,22 +20,29 @@ reproducible** (it is — verified: `npm ci` → `vite build` → `cap sync` →
    - License: MIT
    - App name: Send GPS Data
    - Package name: `com.mongoutils.sendgpsdata`
-4. Point them to `.fdroid.yml` in this repo (the metadata/recipe reference).
+4. Or package it yourself: the metadata merge request is
+   https://gitlab.com/fdroid/fdroiddata/-/merge_requests/52838
 
 ## Build recipe (metadata)
-The full recipe is in [`.fdroid.yml`](./.fdroid.yml). It goes in the
-fdroidserver `metadata/ymongo.sendgpsdata.yml` on approval.
+The authoritative recipe is F-Droid's own metadata file,
+`metadata/com.mongoutils.sendgpsdata.yml` in `fdroiddata` (MR !52838). There is
+no recipe copy in this repo.
 
 Key points for the F-Droid maintainer:
-- Capacitor app → the **web bundle must be built before gradle**:
+- Capacitor app → the **web bundle must be built before gradle**, and `npm ci`
+  must run at the **repo root** (npm workspace: `apps/mobile` depends on the
+  shared `gps-shared` package):
   ```bash
+  cd ../../../..
+  npm ci --ignore-scripts
   cd apps/mobile
-  npm ci
-  NODE_OPTIONS="--max-old-space-size=4096" npm run prod   # vite build → build/
-  npx cap sync android                                     # copies web into android/
-  cd android && ./gradlew assembleRelease
+  NODE_OPTIONS=--max-old-space-size=4096 npm run prod
+  npx cap sync android
   ```
-- `gradleProject` = `apps/mobile/android`, `gradleCommand` = `assembleRelease`.
+- `subdir` = `apps/mobile/android/app` (the Gradle module dir, where `app/build/`
+  is generated) and `gradle: - yes` lets fdroidserver run `assembleRelease`.
+  The buildserver has no Node.js, hence
+  `sudo: apt-get install -y npm nodejs` in the recipe.
 - No proprietary SDKs: ZXing (Apache-2.0) for QR, standard Android Location
   API for GPS. F-Droid friendly.
 

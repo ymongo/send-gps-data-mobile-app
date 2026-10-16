@@ -95,8 +95,8 @@ npm run build:apk            # = bash scripts/build-apk.sh (build + sync + gradl
 ## 📦 F-Droid / Play
 
 This repo is the **F-Droid-ready source**. See:
-- [`.fdroid.yml`](./.fdroid.yml) — F-Droid build recipe reference
 - [`F-DROID.md`](./F-DROID.md) — submission guide
+- Build recipe (authoritative): [`metadata/com.mongoutils.sendgpsdata.yml`](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/52838) — submitted to F-Droid's `fdroiddata`
 
 **Package:** `com.mongoutils.sendgpsdata` · minSdk 26 · targetSdk 36
 **License:** MIT
